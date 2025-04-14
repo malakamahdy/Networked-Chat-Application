@@ -1,3 +1,5 @@
+# Makefile
+
 CC = gcc
 CFLAGS = -Wall -pthread
 TARGETS = server client
