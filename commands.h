@@ -11,5 +11,4 @@ void handle_list(int client_socket, int clients[], char nicknames[][50]);
 void handle_msg(int client_socket, char *input, int clients[], char nicknames[][50]);
 int handle_quit(int client_socket, int clients[], char nicknames[][50]);
 
-
 #endif

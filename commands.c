@@ -130,4 +130,3 @@ int handle_quit(int client_socket, int clients[], char nicknames[][50]) {
 }
 
 
-
