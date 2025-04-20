@@ -6,12 +6,14 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <arpa/inet.h>
+#include "commands.h"
 
 #define PORT 9090               // Port number the server will listen on
 #define MAX_CLIENTS 10          // Max number of clients that can connect
 #define BUFFER_SIZE 1024        // Max size for messages
 
 int clients[MAX_CLIENTS];       // Array to keep track of connected clients
+char nicknames[MAX_CLIENTS][50]; // Stores nicknames per client
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; // Mutex to avoid race conditions
 
 // Thread function to handle communication with a single client
@@ -21,20 +23,62 @@ void *handle_client(void *arg)
     char buffer[BUFFER_SIZE];
     int read_size;
 
+    // Set default nicknames "User1", "User2", etc.
+    pthread_mutex_lock(&lock);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i] == client_socket) {
+            snprintf(nicknames[i], sizeof(nicknames[i]), "User%d", i + 1);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&lock);
     // Keep reading messages from this client
     while ((read_size = recv(client_socket, buffer, sizeof(buffer), 0)) > 0) {
         buffer[read_size] = '\0'; // Null-terminate the message
+    
+    // Check for special commands
+    // Nick command
+    if (strncmp(buffer, "/nick ", 6) == 0) {
+        handle_nick(client_socket, buffer + 6, clients, nicknames);
+        continue;
+    }
+    
+    // List command
+    if (strncmp(buffer, "/list", 5) == 0) {
+        handle_list(client_socket, clients, nicknames);
+        continue;
+    }
 
-        pthread_mutex_lock(&lock); // Lock before accessing shared client list
+    // Message command 
+    if (strncmp(buffer, "/msg ", 5) == 0) {
+        handle_msg(client_socket, buffer + 5, clients, nicknames);
+        continue;
+    }
 
-        // Loop through all clients and send this message to everyone except the sender
-        for (int i = 0; i < MAX_CLIENTS; i++) {
-            if (clients[i] && clients[i] != client_socket) {
-                send(clients[i], buffer, strlen(buffer), 0);
+    // Quit command
+    if (strncmp(buffer, "/quit", 5) == 0) {
+        int should_exit = handle_quit(client_socket, clients, nicknames);
+        if (should_exit) break; // Exit the thread cleanly
+}
+
+    // Loop through all clients and send this message to everyone except the sender
+    pthread_mutex_lock(&lock); // Lock before accessing shared client list
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i] && clients[i] != client_socket) {
+                char full_msg[BUFFER_SIZE + 50];
+                char sender_nick[50] = "Anonymous"; // Default nickname
+
+                for (int j = 0; j < MAX_CLIENTS; j++) {
+                    if (clients[j] == client_socket && strlen(nicknames[j]) > 0) {
+                        strncpy(sender_nick, nicknames[j], sizeof(sender_nick));
+                        break;
+                    }
+                }
+                snprintf(full_msg, sizeof(full_msg), "%s: %s", sender_nick, buffer);
+                send(clients[i], full_msg, strlen(full_msg), 0);
             }
         }
-
-        pthread_mutex_unlock(&lock); // Unlock after we're done broadcasting
+        pthread_mutex_unlock(&lock);
     }
 
     // If we get here, client disconnected or something went wrong
@@ -45,6 +89,7 @@ void *handle_client(void *arg)
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clients[i] == client_socket) {
             clients[i] = 0;
+            memset(nicknames[i], 0, sizeof(nicknames[i]));
             break;
         }
     }
