@@ -1,3 +1,5 @@
+#include "encryption.h"
+#include "shared_key.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,46 +35,50 @@ void *handle_client(void *arg)
 
     // Keep reading messages from this client
     while ((read_size = recv(client_socket, buffer, sizeof(buffer), 0)) > 0) {
-        buffer[read_size] = '\0'; // Null-terminate the message
-    
+        unsigned char decrypted[BUFFER_SIZE];
+        // Decrypt the incoming message using AES-256-CBC
+        int decrypted_len = aes_decrypt((unsigned char *)buffer, read_size, (unsigned char *)aes_key, (unsigned char *)aes_iv, decrypted);
+        if (decrypted_len <= 0) continue;
+        decrypted[decrypted_len] = '\0';
+
         // Check for special commands
-        if (strncmp(buffer, "/nick ", 6) == 0) {
-            handle_nick(client_socket, buffer + 6, clients, nicknames);
+        if (strncmp((char *)decrypted, "/nick ", 6) == 0) {
+            handle_nick(client_socket, (char *)decrypted + 6, clients, nicknames);
             continue;
         }
 
-        if (strncmp(buffer, "/list", 5) == 0) {
+        if (strncmp((char *)decrypted, "/list", 5) == 0) {
             handle_list(client_socket, clients, nicknames);
             continue;
         }
 
         // Check for `/msg group` command BEFORE `/msg`
-        if (strncmp(buffer, "/msg group ", 11) == 0) {
-            handle_group_msg(client_socket, buffer + 11, clients, nicknames);
+        if (strncmp((char *)decrypted, "/msg group ", 11) == 0) {
+            handle_group_msg(client_socket, (char *)decrypted + 11, clients, nicknames);
             continue;
         }
 
-        if (strncmp(buffer, "/msg ", 5) == 0) {
-            handle_msg(client_socket, buffer + 5, clients, nicknames);
+        if (strncmp((char *)decrypted, "/msg ", 5) == 0) {
+            handle_msg(client_socket, (char *)decrypted + 5, clients, nicknames);
             continue;
         }
 
-        if (strncmp(buffer, "/quit", 5) == 0) {
+        if (strncmp((char *)decrypted, "/quit", 5) == 0) {
             int should_exit = handle_quit(client_socket, clients, nicknames);
             if (should_exit) break; // Exit the thread cleanly
         }
 
-        if (strncmp(buffer, "/group ", 7) == 0) {
-            handle_group(client_socket, buffer + 7, clients, nicknames);
+        if (strncmp((char *)decrypted, "/group ", 7) == 0) {
+            handle_group(client_socket, (char *)decrypted + 7, clients, nicknames);
             continue;
         }
 
-        if (strncmp(buffer, "/react ", 7) == 0) {
-            handle_react(client_socket, buffer + 7, clients, nicknames);
+        if (strncmp((char *)decrypted, "/react ", 7) == 0) {
+            handle_react(client_socket, (char *)decrypted + 7, clients, nicknames);
             continue;
         }
 
-        if (strncmp(buffer, "/help", 5) == 0) { // Check for /help command
+        if (strncmp((char *)decrypted, "/help", 5) == 0) { // Check for /help command
             handle_help(client_socket); // Call the help command handler
             continue;
         }
@@ -90,7 +96,7 @@ void *handle_client(void *arg)
                         break;
                     }
                 }
-                snprintf(full_msg, sizeof(full_msg), "%s: %s", sender_nick, buffer);
+                snprintf(full_msg, sizeof(full_msg), "%s: %s", sender_nick, decrypted);
                 send(clients[i], full_msg, strlen(full_msg), 0);
             }
         }

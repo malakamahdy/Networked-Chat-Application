@@ -1,3 +1,5 @@
+#include "encryption.h"
+#include "shared_key.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -90,7 +92,12 @@ int main()
 
     // Main thread keeps reading user input and sending it to the server
     while (fgets(message, sizeof(message), stdin) != NULL) {
-        send(sock, message, strlen(message), 0);
+        unsigned char encrypted[BUFFER_SIZE];
+        // Encrypt the user's message using AES-256-CBC before sending to the server
+        int encrypted_len = aes_encrypt((unsigned char *)message, strlen(message), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        if (encrypted_len > 0) {
+            send(sock, encrypted, encrypted_len, 0);
+        }
     }
 
     // If we ever get here, clean up and close the socket
