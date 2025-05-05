@@ -6,6 +6,8 @@
 #include <pthread.h>
 #include "commands.h"
 #include <unistd.h>  
+#include "encryption.h"
+#include "shared_key.h"
 
 extern pthread_mutex_t lock;
 
@@ -30,7 +32,10 @@ void handle_nick(int client_socket, char *new_nick, int clients[], char nickname
 
     char confirm_msg[BUFFER_SIZE];
     snprintf(confirm_msg, sizeof(confirm_msg), "Nickname changed to *%s*\n", new_nick);
-    send(client_socket, confirm_msg, strlen(confirm_msg), 0);
+    // Encrypt the outgoing server response before sending to the client
+    unsigned char encrypted[BUFFER_SIZE];
+    int encrypted_len = aes_encrypt((unsigned char *)confirm_msg, strlen(confirm_msg), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+    send(client_socket, encrypted, encrypted_len, 0);
 }
 
 // This function handles the /list command
@@ -47,8 +52,10 @@ void handle_list(int client_socket, int clients[], char nicknames[][50]) {
         }
     }
     pthread_mutex_unlock(&lock);
-
-    send(client_socket, list_msg, strlen(list_msg), 0);
+    // Encrypt the outgoing server response before sending to the client
+    unsigned char encrypted[BUFFER_SIZE];
+    int encrypted_len = aes_encrypt((unsigned char *)list_msg, strlen(list_msg), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+    send(client_socket, encrypted, encrypted_len, 0);
 }
 
 // This function handles the /msg command
@@ -59,7 +66,10 @@ void handle_msg(int client_socket, char *input, int clients[], char nicknames[][
 
     if (!target_nick || !message_body) {
         char *err = "Incorrect Usage: /msg <nickname> <message>\n";
-        send(client_socket, err, strlen(err), 0);
+        // Encrypt the outgoing server response before sending to the client
+        unsigned char encrypted[BUFFER_SIZE];
+        int encrypted_len = aes_encrypt((unsigned char *)err, strlen(err), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        send(client_socket, encrypted, encrypted_len, 0);
         return;
     }
 
@@ -81,7 +91,10 @@ void handle_msg(int client_socket, char *input, int clients[], char nicknames[][
         if (clients[i] != 0 && strcmp(nicknames[i], target_nick) == 0) {
             char private_msg[BUFFER_SIZE + 100];
             snprintf(private_msg, sizeof(private_msg), "[Private Msg] %s: %s\n", sender_nick, message_body);
-            send(clients[i], private_msg, strlen(private_msg), 0);
+            // Encrypt the outgoing server response before sending to the client
+            unsigned char encrypted[BUFFER_SIZE];
+            int encrypted_len = aes_encrypt((unsigned char *)private_msg, strlen(private_msg), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+            send(clients[i], encrypted, encrypted_len, 0);
             target_found = 1;
             break;
         }
@@ -92,7 +105,10 @@ void handle_msg(int client_socket, char *input, int clients[], char nicknames[][
     if (!target_found) {
         char err_msg[BUFFER_SIZE];
         snprintf(err_msg, sizeof(err_msg), "No user found with nickname '%s'\n", target_nick);
-        send(client_socket, err_msg, strlen(err_msg), 0);
+        // Encrypt the outgoing server response before sending to the client
+        unsigned char encrypted[BUFFER_SIZE];
+        int encrypted_len = aes_encrypt((unsigned char *)err_msg, strlen(err_msg), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        send(client_socket, encrypted, encrypted_len, 0);
     }
 }
 
@@ -122,13 +138,19 @@ int handle_quit(int client_socket, int clients[], char nicknames[][50]) {
     pthread_mutex_lock(&lock);
     for (int i = 0; i < MAX_CLIENTS; i++) {
         if (clients[i] != 0 && clients[i] != client_socket) {
-            send(clients[i], goodbye_msg, strlen(goodbye_msg), 0);
+            // Encrypt the outgoing server response before sending to the client
+            unsigned char encrypted[BUFFER_SIZE];
+            int encrypted_len = aes_encrypt((unsigned char *)goodbye_msg, strlen(goodbye_msg), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+            send(clients[i], encrypted, encrypted_len, 0);
         }
     }
     pthread_mutex_unlock(&lock);
 
     // Tell the quitting client goodbye and close their socket
-    send(client_socket, "Disconnected from server.\n", 27, 0);
+    // Encrypt the outgoing server response before sending to the client
+    unsigned char encrypted[BUFFER_SIZE];
+    int encrypted_len = aes_encrypt((unsigned char *)"Disconnected from server.\n", 27, (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+    send(client_socket, encrypted, encrypted_len, 0);
     close(client_socket);
     return 1; // Signal that the client should exit the thread
 }
@@ -141,7 +163,10 @@ void handle_react(int client_socket, char *input, int clients[], char nicknames[
     // Validate the input
     if (!target_nick || !reaction) {
         char *err = "Incorrect Usage: /react <nickname> <reaction>\n";
-        send(client_socket, err, strlen(err), 0);
+        // Encrypt the outgoing server response before sending to the client
+        unsigned char encrypted[BUFFER_SIZE];
+        int encrypted_len = aes_encrypt((unsigned char *)err, strlen(err), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        send(client_socket, encrypted, encrypted_len, 0);
         return;
     }
 
@@ -160,7 +185,10 @@ void handle_react(int client_socket, char *input, int clients[], char nicknames[
 
     if (!is_valid_reaction) {
         char *err = "Invalid reaction. Valid reactions are: laugh, love, emphasize, question.\n";
-        send(client_socket, err, strlen(err), 0);
+        // Encrypt the outgoing server response before sending to the client
+        unsigned char encrypted[BUFFER_SIZE];
+        int encrypted_len = aes_encrypt((unsigned char *)err, strlen(err), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        send(client_socket, encrypted, encrypted_len, 0);
         return;
     }
 
@@ -182,7 +210,10 @@ void handle_react(int client_socket, char *input, int clients[], char nicknames[
         if (clients[i] != 0 && strcmp(nicknames[i], target_nick) == 0) {
             char reaction_msg[BUFFER_SIZE + 100];
             snprintf(reaction_msg, sizeof(reaction_msg), "%s reacted with '%s' to your message.\n", sender_nick, reaction);
-            send(clients[i], reaction_msg, strlen(reaction_msg), 0);
+            // Encrypt the outgoing server response before sending to the client
+            unsigned char encrypted[BUFFER_SIZE];
+            int encrypted_len = aes_encrypt((unsigned char *)reaction_msg, strlen(reaction_msg), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+            send(clients[i], encrypted, encrypted_len, 0);
             target_found = 1;
             break;
         }
@@ -193,7 +224,10 @@ void handle_react(int client_socket, char *input, int clients[], char nicknames[
     if (!target_found) {
         char err_msg[BUFFER_SIZE];
         snprintf(err_msg, sizeof(err_msg), "No user found with nickname '%s'\n", target_nick);
-        send(client_socket, err_msg, strlen(err_msg), 0);
+        // Encrypt the outgoing server response before sending to the client
+        unsigned char encrypted[BUFFER_SIZE];
+        int encrypted_len = aes_encrypt((unsigned char *)err_msg, strlen(err_msg), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        send(client_socket, encrypted, encrypted_len, 0);
     }
 }
 
@@ -205,7 +239,10 @@ void handle_group(int client_socket, char *input, int clients[], char nicknames[
 
     if (!member_list || !group_name) {
         char *err = "Incorrect Usage: /group <member1>,<member2>,... <group_name> [message]\n";
-        send(client_socket, err, strlen(err), 0);
+        // Encrypt the outgoing server response before sending to the client
+        unsigned char encrypted[BUFFER_SIZE];
+        int encrypted_len = aes_encrypt((unsigned char *)err, strlen(err), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        send(client_socket, encrypted, encrypted_len, 0);
         return;
     }
 
@@ -214,7 +251,10 @@ void handle_group(int client_socket, char *input, int clients[], char nicknames[
     for (int i = 0; i < group_count; i++) {
         if (strcmp(groups[i].name, group_name) == 0) {
             char *err = "Group name already exists.\n";
-            send(client_socket, err, strlen(err), 0);
+            // Encrypt the outgoing server response before sending to the client
+            unsigned char encrypted[BUFFER_SIZE];
+            int encrypted_len = aes_encrypt((unsigned char *)err, strlen(err), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+            send(client_socket, encrypted, encrypted_len, 0);
             pthread_mutex_unlock(&lock);
             return;
         }
@@ -223,7 +263,10 @@ void handle_group(int client_socket, char *input, int clients[], char nicknames[
     // Create new group
     if (group_count >= MAX_GROUPS) {
         char *err = "Maximum number of groups reached.\n";
-        send(client_socket, err, strlen(err), 0);
+        // Encrypt the outgoing server response before sending to the client
+        unsigned char encrypted[BUFFER_SIZE];
+        int encrypted_len = aes_encrypt((unsigned char *)err, strlen(err), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        send(client_socket, encrypted, encrypted_len, 0);
         pthread_mutex_unlock(&lock);
         return;
     }
@@ -249,7 +292,10 @@ void handle_group(int client_socket, char *input, int clients[], char nicknames[
         if (!member_found) {
             char err_msg[BUFFER_SIZE];
             snprintf(err_msg, sizeof(err_msg), "No user found with nickname '%s'\n", member_nick);
-            send(client_socket, err_msg, strlen(err_msg), 0);
+            // Encrypt the outgoing server response before sending to the client
+            unsigned char encrypted[BUFFER_SIZE];
+            int encrypted_len = aes_encrypt((unsigned char *)err_msg, strlen(err_msg), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+            send(client_socket, encrypted, encrypted_len, 0);
         }
         member_nick = strtok(NULL, ",");
     }
@@ -259,14 +305,20 @@ void handle_group(int client_socket, char *input, int clients[], char nicknames[
     char group_msg[BUFFER_SIZE + 100];
     snprintf(group_msg, sizeof(group_msg), "Group '%s' created.\n", group_name);
     for (int i = 0; i < new_group->member_count; i++) {
-        send(new_group->members[i], group_msg, strlen(group_msg), 0);
+        // Encrypt the outgoing server response before sending to the client
+        unsigned char encrypted[BUFFER_SIZE];
+        int encrypted_len = aes_encrypt((unsigned char *)group_msg, strlen(group_msg), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        send(new_group->members[i], encrypted, encrypted_len, 0);
     }
 
     // Send initial message if provided
     if (message) {
         snprintf(group_msg, sizeof(group_msg), "[Group %s] %s\n", group_name, message);
         for (int i = 0; i < new_group->member_count; i++) {
-            send(new_group->members[i], group_msg, strlen(group_msg), 0);
+            // Encrypt the outgoing server response before sending to the client
+            unsigned char encrypted[BUFFER_SIZE];
+            int encrypted_len = aes_encrypt((unsigned char *)group_msg, strlen(group_msg), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+            send(new_group->members[i], encrypted, encrypted_len, 0);
         }
     }
 }
@@ -278,7 +330,10 @@ void handle_group_msg(int client_socket, char *input, int clients[], char nickna
 
     if (!group_name || !message) {
         char *err = "Incorrect Usage: /msg group <group_name> <message>\n";
-        send(client_socket, err, strlen(err), 0);
+        // Encrypt the outgoing server response before sending to the client
+        unsigned char encrypted[BUFFER_SIZE];
+        int encrypted_len = aes_encrypt((unsigned char *)err, strlen(err), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        send(client_socket, encrypted, encrypted_len, 0);
         return;
     }
 
@@ -295,7 +350,10 @@ void handle_group_msg(int client_socket, char *input, int clients[], char nickna
 
     if (!target_group) {
         char *err = "Group not found.\n";
-        send(client_socket, err, strlen(err), 0);
+        // Encrypt the outgoing server response before sending to the client
+        unsigned char encrypted[BUFFER_SIZE];
+        int encrypted_len = aes_encrypt((unsigned char *)err, strlen(err), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        send(client_socket, encrypted, encrypted_len, 0);
         pthread_mutex_unlock(&lock);
         return;
     }
@@ -311,7 +369,10 @@ void handle_group_msg(int client_socket, char *input, int clients[], char nickna
 
     if (!is_member) {
         char *err = "You are not a member of this group.\n";
-        send(client_socket, err, strlen(err), 0);
+        // Encrypt the outgoing server response before sending to the client
+        unsigned char encrypted[BUFFER_SIZE];
+        int encrypted_len = aes_encrypt((unsigned char *)err, strlen(err), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        send(client_socket, encrypted, encrypted_len, 0);
         pthread_mutex_unlock(&lock);
         return;
     }
@@ -329,7 +390,10 @@ void handle_group_msg(int client_socket, char *input, int clients[], char nickna
 
     snprintf(group_msg, sizeof(group_msg), "[Group %s] %s: %s\n", group_name, sender_nick, message);
     for (int i = 0; i < target_group->member_count; i++) {
-        send(target_group->members[i], group_msg, strlen(group_msg), 0);
+        // Encrypt the outgoing server response before sending to the client
+        unsigned char encrypted[BUFFER_SIZE];
+        int encrypted_len = aes_encrypt((unsigned char *)group_msg, strlen(group_msg), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+        send(target_group->members[i], encrypted, encrypted_len, 0);
     }
 
     pthread_mutex_unlock(&lock);
@@ -366,6 +430,8 @@ void handle_help(int client_socket)
         "   /help\n"
         "   Example: /help\n\n";
 
-    // Send the help message to the client
-    send(client_socket, help_message, strlen(help_message), 0);
+    // Encrypt the outgoing server response before sending to the client
+    unsigned char encrypted[BUFFER_SIZE * 2];
+    int encrypted_len = aes_encrypt((unsigned char *)help_message, strlen(help_message), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+    send(client_socket, encrypted, encrypted_len, 0);
 }

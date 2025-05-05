@@ -3,6 +3,9 @@
         "*.sqlbook": "sql",
         "*.ndjson": "jsonl",
         "*.dbclient-js": "javascript",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "stdlib.h": "c",
+        "shared_key.h": "c",
+        "encryption.h": "c"
     }
 }

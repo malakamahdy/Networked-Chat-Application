@@ -8,6 +8,8 @@
 #include <arpa/inet.h>
 #include "commands.h"
 
+// Include encryption headers to enable secure communication
+
 #define PORT 9090               // Port number the server will listen on
 #define MAX_CLIENTS 10          // Max number of clients that can connect
 #define BUFFER_SIZE 1024        // Max size for messages
@@ -36,6 +38,7 @@ void *handle_client(void *arg)
     // Keep reading messages from this client
     while ((read_size = recv(client_socket, buffer, sizeof(buffer), 0)) > 0) {
         unsigned char decrypted[BUFFER_SIZE];
+        // Attempt to decrypt the received message before processing commands
         // Decrypt the incoming message using AES-256-CBC
         int decrypted_len = aes_decrypt((unsigned char *)buffer, read_size, (unsigned char *)aes_key, (unsigned char *)aes_iv, decrypted);
         if (decrypted_len <= 0) continue;
@@ -83,7 +86,7 @@ void *handle_client(void *arg)
             continue;
         }
 
-        // Loop through all clients and send this message to everyone except the sender
+        // Broadcast the decrypted message to all connected clients except the sender
         pthread_mutex_lock(&lock); // Lock before accessing shared client list
         for (int i = 0; i < MAX_CLIENTS; i++) {
             if (clients[i] && clients[i] != client_socket) {
@@ -97,7 +100,10 @@ void *handle_client(void *arg)
                     }
                 }
                 snprintf(full_msg, sizeof(full_msg), "%s: %s", sender_nick, decrypted);
-                send(clients[i], full_msg, strlen(full_msg), 0);
+                // Encrypt the broadcast message before sending to each client
+                unsigned char encrypted[BUFFER_SIZE];
+                int encrypted_len = aes_encrypt((unsigned char *)full_msg, strlen(full_msg), (unsigned char *)aes_key, (unsigned char *)aes_iv, encrypted);
+                send(clients[i], encrypted, encrypted_len, 0);
             }
         }
         pthread_mutex_unlock(&lock);

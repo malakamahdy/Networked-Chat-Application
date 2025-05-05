@@ -58,8 +58,14 @@ void *receive_handler(void *socket_desc)
 
     // Keep listening for messages from the server
     while ((read_size = recv(sock, buffer, sizeof(buffer), 0)) > 0) {
-        buffer[read_size] = '\0';          // Null-terminating the received message
-        printf("%s", buffer);              // Printing the message to stdout
+        unsigned char decrypted[BUFFER_SIZE];
+
+        // Decrypt the incoming message using AES-256-CBC
+        int decrypted_len = aes_decrypt((unsigned char *)buffer, read_size, (unsigned char *)aes_key, (unsigned char *)aes_iv, decrypted);
+        if (decrypted_len > 0) {
+            decrypted[decrypted_len] = '\0'; // Null-terminate the decrypted message
+            printf("%s", decrypted);         // Print the decrypted message
+        }
     }
 
     // NOTE: If the loop exits, the server probably disconnected
