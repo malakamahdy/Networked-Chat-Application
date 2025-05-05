@@ -334,3 +334,38 @@ void handle_group_msg(int client_socket, char *input, int clients[], char nickna
 
     pthread_mutex_unlock(&lock);
 }
+
+// Function to handle the /help command
+void handle_help(int client_socket)
+{
+    const char *help_message =
+        "Here are the list of commands available to users:\n\n"
+        "1. Change Nickname:\n"
+        "   /nick <new_nickname>\n"
+        "   Example: /nick john\n\n"
+        "2. List Online Users:\n"
+        "   /list\n"
+        "   Example: /list\n\n"
+        "3. Send a Private Message:\n"
+        "   /msg <nickname> <message>\n"
+        "   Example: /msg alice Hello, Alice!\n\n"
+        "4. React to a Message:\n"
+        "   /react <nickname> <reaction>\n"
+        "   Valid reactions: laugh, love, emphasize, question\n"
+        "   Example: /react john laugh\n\n"
+        "5. Create a Group Chat:\n"
+        "   /group <nickname1>,<nickname2>,... <group_name> [message]\n"
+        "   Example: /group alice,bob teamchat Hello team!\n\n"
+        "6. Send a Message to a Group:\n"
+        "   /msg group <group_name> <message>\n"
+        "   Example: /msg group teamchat Let's plan the project!\n\n"
+        "7. Quit the Application:\n"
+        "   /quit\n"
+        "   Example: /quit\n\n"
+        "8. See available commands:\n"
+        "   /help\n"
+        "   Example: /help\n\n";
+
+    // Send the help message to the client
+    send(client_socket, help_message, strlen(help_message), 0);
+}

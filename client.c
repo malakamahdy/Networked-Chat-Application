@@ -1,5 +1,3 @@
-// client.c
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,8 +8,47 @@
 #define PORT 9090               // The port it's connecting to (same as server)
 #define BUFFER_SIZE 1024        // Max size for messages
 
+// Function to print the welcome message and list of commands
+void print_welcome_message() {
+    printf("Welcome to the Networked Chat Application!\n");
+    printf("Here are the list of commands available to users:\n\n");
+
+    printf("1. Change Nickname:\n");
+    printf("   /nick <new_nickname>\n");
+    printf("   Example: /nick john\n\n");
+
+    printf("2. List Online Users:\n");
+    printf("   /list\n");
+    printf("   Example: /list\n\n");
+
+    printf("3. Send a Private Message:\n");
+    printf("   /msg <nickname> <message>\n");
+    printf("   Example: /msg alice Hello, Alice!\n\n");
+
+    printf("4. React to a Message:\n");
+    printf("   /react <nickname> <reaction>\n");
+    printf("   Valid reactions: laugh, love, emphasize, question\n");
+    printf("   Example: /react john laugh\n\n");
+
+    printf("5. Create a Group Chat:\n");
+    printf("   /group <nickname1>,<nickname2>,... <group_name> [message]\n");
+    printf("   Example: /group alice,bob teamchat Hello team!\n\n");
+
+    printf("6. Send a Message to a Group:\n");
+    printf("   /msg group <group_name> <message>\n");
+    printf("   Example: /msg group teamchat Let's plan the project!\n\n");
+
+    printf("7. Quit the Application:\n");
+    printf("   /quit\n");
+    printf("   Example: /quit\n\n");
+    
+    printf("8. See available commands:\n");
+    printf("   /help\n");
+    printf("   Example: /help\n\n");
+}
+
 // Function runs on a separate thread and handles incoming messages from the server
-void *receive_handler(void *socket_desc) 
+void *receive_handler(void *socket_desc)
 {
     int sock = *(int *)socket_desc;        // Casts the argument back to an int socket
     char buffer[BUFFER_SIZE];
@@ -27,12 +64,15 @@ void *receive_handler(void *socket_desc)
     return 0;
 }
 
-int main() 
+int main()
 {
     int sock;
     struct sockaddr_in server;
     char message[BUFFER_SIZE];
     pthread_t recv_thread;
+
+    // Print the welcome message and list of commands
+    print_welcome_message();
 
     // Create a TCP socket
     sock = socket(AF_INET, SOCK_STREAM, 0);

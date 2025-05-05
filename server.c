@@ -72,6 +72,11 @@ void *handle_client(void *arg)
             continue;
         }
 
+        if (strncmp(buffer, "/help", 5) == 0) { // Check for /help command
+            handle_help(client_socket); // Call the help command handler
+            continue;
+        }
+
         // Loop through all clients and send this message to everyone except the sender
         pthread_mutex_lock(&lock); // Lock before accessing shared client list
         for (int i = 0; i < MAX_CLIENTS; i++) {

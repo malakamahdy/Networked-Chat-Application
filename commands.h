@@ -27,5 +27,6 @@ int handle_quit(int client_socket, int clients[], char nicknames[][50]);
 void handle_react(int client_socket, char *input, int clients[], char nicknames[][50]);
 void handle_group(int client_socket, char *input, int clients[], char nicknames[][50]);
 void handle_group_msg(int client_socket, char *input, int clients[], char nicknames[][50]);
+void handle_help(int client_socket); 
 
 #endif
