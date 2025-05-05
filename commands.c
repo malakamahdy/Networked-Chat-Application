@@ -129,4 +129,66 @@ int handle_quit(int client_socket, int clients[], char nicknames[][50]) {
     return 1; // Signal that the client should exit the thread
 }
 
+void handle_react(int client_socket, char *input, int clients[], char nicknames[][50]) {
+    // Tokenize the input to extract the target nickname and reaction
+    char *target_nick = strtok(input, " ");   // Get the nickname of the target user
+    char *reaction = strtok(NULL, "");       // Get the reaction type
 
+    // Validate the input
+    if (!target_nick || !reaction) {
+        char *err = "Incorrect Usage: /react <nickname> <reaction>\n";
+        send(client_socket, err, strlen(err), 0);
+        return;
+    }
+
+    // Trim any trailing newlines from the reaction
+    reaction[strcspn(reaction, "\n")] = '\0';
+
+    // Validate the reaction type
+    const char *valid_reactions[] = {"laugh", "love", "emphasize", "question"};
+    int is_valid_reaction = 0;
+    for (int i = 0; i < 4; i++) {
+        if (strcmp(reaction, valid_reactions[i]) == 0) {
+            is_valid_reaction = 1;
+            break;
+        }
+    }
+
+    if (!is_valid_reaction) {
+        char *err = "Invalid reaction. Valid reactions are: laugh, love, emphasize, question.\n";
+        send(client_socket, err, strlen(err), 0);
+        return;
+    }
+
+    int target_found = 0;
+    char sender_nick[50] = "Anonymous";
+
+    pthread_mutex_lock(&lock);
+
+    // Get the sender's nickname
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i] == client_socket && strlen(nicknames[i]) > 0) {
+            strncpy(sender_nick, nicknames[i], sizeof(sender_nick));
+            break;
+        }
+    }
+
+    // Find the target user and send the reaction
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i] != 0 && strcmp(nicknames[i], target_nick) == 0) {
+            char reaction_msg[BUFFER_SIZE + 100];
+            snprintf(reaction_msg, sizeof(reaction_msg), "%s reacted with '%s' to your message.\n", sender_nick, reaction);
+            send(clients[i], reaction_msg, strlen(reaction_msg), 0);
+            target_found = 1;
+            break;
+        }
+    }
+
+    pthread_mutex_unlock(&lock);
+
+    if (!target_found) {
+        char err_msg[BUFFER_SIZE];
+        snprintf(err_msg, sizeof(err_msg), "No user found with nickname '%s'\n", target_nick);
+        send(client_socket, err_msg, strlen(err_msg), 0);
+    }
+}

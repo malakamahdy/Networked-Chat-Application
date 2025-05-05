@@ -1,5 +1,3 @@
-// server.c
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +15,7 @@ char nicknames[MAX_CLIENTS][50]; // Stores nicknames per client
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; // Mutex to avoid race conditions
 
 // Thread function to handle communication with a single client
-void *handle_client(void *arg) 
+void *handle_client(void *arg)
 {
     int client_socket = *(int *)arg;
     char buffer[BUFFER_SIZE];
@@ -32,39 +30,41 @@ void *handle_client(void *arg)
         }
     }
     pthread_mutex_unlock(&lock);
+
     // Keep reading messages from this client
     while ((read_size = recv(client_socket, buffer, sizeof(buffer), 0)) > 0) {
         buffer[read_size] = '\0'; // Null-terminate the message
     
-    // Check for special commands
-    // Nick command
-    if (strncmp(buffer, "/nick ", 6) == 0) {
-        handle_nick(client_socket, buffer + 6, clients, nicknames);
-        continue;
-    }
+        // Check for special commands
+        if (strncmp(buffer, "/nick ", 6) == 0) {
+            handle_nick(client_socket, buffer + 6, clients, nicknames);
+            continue;
+        }
     
-    // List command
-    if (strncmp(buffer, "/list", 5) == 0) {
-        handle_list(client_socket, clients, nicknames);
-        continue;
-    }
+        if (strncmp(buffer, "/list", 5) == 0) {
+            handle_list(client_socket, clients, nicknames);
+            continue;
+        }
 
-    // Message command 
-    if (strncmp(buffer, "/msg ", 5) == 0) {
-        handle_msg(client_socket, buffer + 5, clients, nicknames);
-        continue;
-    }
+        if (strncmp(buffer, "/msg ", 5) == 0) {
+            handle_msg(client_socket, buffer + 5, clients, nicknames);
+            continue;
+        }
 
-    // Quit command
-    if (strncmp(buffer, "/quit", 5) == 0) {
-        int should_exit = handle_quit(client_socket, clients, nicknames);
-        if (should_exit) break; // Exit the thread cleanly
-}
+        if (strncmp(buffer, "/quit", 5) == 0) {
+            int should_exit = handle_quit(client_socket, clients, nicknames);
+            if (should_exit) break; // Exit the thread cleanly
+        }
+        
+        if (strncmp(buffer, "/react ", 7) == 0) {
+            handle_react(client_socket, buffer + 7, clients, nicknames);
+            continue;
+        }
 
-    // Loop through all clients and send this message to everyone except the sender
-    pthread_mutex_lock(&lock); // Lock before accessing shared client list
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (clients[i] && clients[i] != client_socket) {
+        // Loop through all clients and send this message to everyone except the sender
+        pthread_mutex_lock(&lock); // Lock before accessing shared client list
+        for (int i = 0; i < MAX_CLIENTS; i++) {
+            if (clients[i] && clients[i] != client_socket) {
                 char full_msg[BUFFER_SIZE + 50];
                 char sender_nick[50] = "Anonymous"; // Default nickname
 
@@ -96,6 +96,7 @@ void *handle_client(void *arg)
     pthread_mutex_unlock(&lock);
 
     pthread_exit(NULL); // End the thread
+    return NULL; // Null return for void *
 }
 
 int main() {
