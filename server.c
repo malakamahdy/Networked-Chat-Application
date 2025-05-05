@@ -40,9 +40,15 @@ void *handle_client(void *arg)
             handle_nick(client_socket, buffer + 6, clients, nicknames);
             continue;
         }
-    
+
         if (strncmp(buffer, "/list", 5) == 0) {
             handle_list(client_socket, clients, nicknames);
+            continue;
+        }
+
+        // Check for `/msg group` command BEFORE `/msg`
+        if (strncmp(buffer, "/msg group ", 11) == 0) {
+            handle_group_msg(client_socket, buffer + 11, clients, nicknames);
             continue;
         }
 
@@ -55,7 +61,12 @@ void *handle_client(void *arg)
             int should_exit = handle_quit(client_socket, clients, nicknames);
             if (should_exit) break; // Exit the thread cleanly
         }
-        
+
+        if (strncmp(buffer, "/group ", 7) == 0) {
+            handle_group(client_socket, buffer + 7, clients, nicknames);
+            continue;
+        }
+
         if (strncmp(buffer, "/react ", 7) == 0) {
             handle_react(client_socket, buffer + 7, clients, nicknames);
             continue;

@@ -9,6 +9,10 @@
 
 extern pthread_mutex_t lock;
 
+// Define groups and count
+Group groups[MAX_GROUPS] = {0};
+int group_count = 0;
+
 // This function handles the /nick command
 
 void handle_nick(int client_socket, char *new_nick, int clients[], char nicknames[][50]) {
@@ -191,4 +195,142 @@ void handle_react(int client_socket, char *input, int clients[], char nicknames[
         snprintf(err_msg, sizeof(err_msg), "No user found with nickname '%s'\n", target_nick);
         send(client_socket, err_msg, strlen(err_msg), 0);
     }
+}
+
+void handle_group(int client_socket, char *input, int clients[], char nicknames[][50]) {
+    // Tokenize input to extract group name, members, and message
+    char *member_list = strtok(input, " ");   // Members
+    char *group_name = strtok(NULL, " ");    // Group name
+    char *message = strtok(NULL, "");        // Optional message
+
+    if (!member_list || !group_name) {
+        char *err = "Incorrect Usage: /group <member1>,<member2>,... <group_name> [message]\n";
+        send(client_socket, err, strlen(err), 0);
+        return;
+    }
+
+    // Check if group name is unique
+    pthread_mutex_lock(&lock);
+    for (int i = 0; i < group_count; i++) {
+        if (strcmp(groups[i].name, group_name) == 0) {
+            char *err = "Group name already exists.\n";
+            send(client_socket, err, strlen(err), 0);
+            pthread_mutex_unlock(&lock);
+            return;
+        }
+    }
+
+    // Create new group
+    if (group_count >= MAX_GROUPS) {
+        char *err = "Maximum number of groups reached.\n";
+        send(client_socket, err, strlen(err), 0);
+        pthread_mutex_unlock(&lock);
+        return;
+    }
+
+    Group *new_group = &groups[group_count++];
+    strncpy(new_group->name, group_name, sizeof(new_group->name));
+    new_group->member_count = 0;
+
+    // Add the sender to the group
+    new_group->members[new_group->member_count++] = client_socket;
+
+    // Add other members to the group
+    char *member_nick = strtok(member_list, ",");
+    while (member_nick != NULL) {
+        int member_found = 0;
+        for (int i = 0; i < MAX_CLIENTS; i++) {
+            if (clients[i] != 0 && strcmp(nicknames[i], member_nick) == 0) {
+                new_group->members[new_group->member_count++] = clients[i];
+                member_found = 1;
+                break;
+            }
+        }
+        if (!member_found) {
+            char err_msg[BUFFER_SIZE];
+            snprintf(err_msg, sizeof(err_msg), "No user found with nickname '%s'\n", member_nick);
+            send(client_socket, err_msg, strlen(err_msg), 0);
+        }
+        member_nick = strtok(NULL, ",");
+    }
+    pthread_mutex_unlock(&lock);
+
+    // Notify group members
+    char group_msg[BUFFER_SIZE + 100];
+    snprintf(group_msg, sizeof(group_msg), "Group '%s' created.\n", group_name);
+    for (int i = 0; i < new_group->member_count; i++) {
+        send(new_group->members[i], group_msg, strlen(group_msg), 0);
+    }
+
+    // Send initial message if provided
+    if (message) {
+        snprintf(group_msg, sizeof(group_msg), "[Group %s] %s\n", group_name, message);
+        for (int i = 0; i < new_group->member_count; i++) {
+            send(new_group->members[i], group_msg, strlen(group_msg), 0);
+        }
+    }
+}
+
+void handle_group_msg(int client_socket, char *input, int clients[], char nicknames[][50]) {
+    // Tokenize input to extract group name and message
+    char *group_name = strtok(input, " ");
+    char *message = strtok(NULL, "");
+
+    if (!group_name || !message) {
+        char *err = "Incorrect Usage: /msg group <group_name> <message>\n";
+        send(client_socket, err, strlen(err), 0);
+        return;
+    }
+
+    pthread_mutex_lock(&lock);
+
+    // Find the group
+    Group *target_group = NULL;
+    for (int i = 0; i < group_count; i++) {
+        if (strcmp(groups[i].name, group_name) == 0) {
+            target_group = &groups[i];
+            break;
+        }
+    }
+
+    if (!target_group) {
+        char *err = "Group not found.\n";
+        send(client_socket, err, strlen(err), 0);
+        pthread_mutex_unlock(&lock);
+        return;
+    }
+
+    // Check if sender is a member
+    int is_member = 0;
+    for (int i = 0; i < target_group->member_count; i++) {
+        if (target_group->members[i] == client_socket) {
+            is_member = 1;
+            break;
+        }
+    }
+
+    if (!is_member) {
+        char *err = "You are not a member of this group.\n";
+        send(client_socket, err, strlen(err), 0);
+        pthread_mutex_unlock(&lock);
+        return;
+    }
+
+    // Send message to all group members
+    char group_msg[BUFFER_SIZE + 100];
+    char sender_nick[50] = "Anonymous";
+
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i] == client_socket && strlen(nicknames[i]) > 0) {
+            strncpy(sender_nick, nicknames[i], sizeof(sender_nick));
+            break;
+        }
+    }
+
+    snprintf(group_msg, sizeof(group_msg), "[Group %s] %s: %s\n", group_name, sender_nick, message);
+    for (int i = 0; i < target_group->member_count; i++) {
+        send(target_group->members[i], group_msg, strlen(group_msg), 0);
+    }
+
+    pthread_mutex_unlock(&lock);
 }
