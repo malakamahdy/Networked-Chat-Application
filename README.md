@@ -22,8 +22,11 @@
 git clone https://github.com/malakamahdy/Networked-Chat-Application.git
 cd Networked-Chat-Application
 make
+```
 
 # To clean the objects:
 # Enter this command in your terminal
 ```bash
 make clean
+```
+
