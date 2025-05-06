@@ -1,4 +1,4 @@
-# Netowrk Chat Application 
+# Networked Chat Application User Guide 
 # A multi-user chat application built in C using multi-threading, TCP sockets and OpenSSL encryption.
 
 # Core Features:
